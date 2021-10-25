@@ -1,7 +1,9 @@
 package com.submission.myworkmanager
 
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -15,12 +17,21 @@ import java.lang.Exception
 import java.text.DecimalFormat
 
 class MyWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
+    /*
+    metode doWork adalah metode yang akan dipanggil ketika WorkManager berjalan, dan baris kode didalamnya secara otomatis
+    berjalan di background thread. metode ini juga mengembalikan result untuk mengetahui status WorkManager yg berjalan, ada bebrapa status yang bisa dikembalikan
+    1. Result.success(), result yang menandakan berhasil.
+    2. Result.failure(), result yang menandakan gagal.
+    3. Result.retry(), result yang menandakan untuk mengulang task lagi.
+    Pada kode ini menggunakan getCurrentWeather yg mengembalikan nilai result, dimana getCurrentWeather menggunakan library LoopJ yg mengimplementasikan 2 method
+    yaitu onSuccess dan onFailure, disinilah nilai result pada method doWork diambil melalui method getCurrentWeather
+     */
     override fun doWork(): Result {
         val dataCity = inputData.getString(EXTRA_CITY)
         return getCurrentWeather(dataCity)
     }
 
-    private fun getCurrentWeather(city: String): Result {
+    private fun getCurrentWeather(city: String?): Result {
         Log.d(TAG, "getCurrentWeather: Mulai....")
         Looper.prepare()
         val client = SyncHttpClient()
@@ -57,7 +68,7 @@ class MyWorker(context: Context, workerParams: WorkerParameters) : Worker(contex
                 statusCode: Int,
                 headers: Array<out Header>?,
                 responseBody: ByteArray?,
-                error: Throwable?
+                error: Throwable
             ) {
                 Log.d(TAG, "onFailure: Gagal...")
                 showNotification("Get Current Weather Failed", error.message)
@@ -71,14 +82,24 @@ class MyWorker(context: Context, workerParams: WorkerParameters) : Worker(contex
     private fun showNotification(title: String, description: String?) {
         val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification: NotificationCompat.Builder = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setSmallIcon(R.drawable.)
+            .setSmallIcon(R.drawable.ic_notifications_24)
+            .setContentTitle(title)
+            .setContentText(description)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH)
+            notification.setChannelId(CHANNEL_ID)
+            notificationManager.createNotificationChannel(channel)
+        }
+        notificationManager.notify(NOTIFICATION_ID, notification.build())
     }
 
     private var resultStatus: Result? = null
 
     companion object{
-        private val TAG = MyWorker::class.java
-        const val APP_ID = "YOUR_KEY_HERE"
+        private val TAG = MyWorker::class.java.simpleName
+        const val APP_ID = "ad088534916b06e6608d3e9db5b31f82"
         const val EXTRA_CITY = "city"
         const val NOTIFICATION_ID = 1
         const val CHANNEL_ID = "channel_1"
